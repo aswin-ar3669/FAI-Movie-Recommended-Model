@@ -28,6 +28,9 @@ This is a comprehensive movie recommendation system built with Streamlit, based 
 
 1. Install required dependencies:
 ```bash
+python -m venv venv
+.\venv\Scripts\activate
+
 pip install -r requirements.txt
 ```
 

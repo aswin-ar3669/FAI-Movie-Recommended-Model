@@ -498,7 +498,8 @@ def demographic_filtering(df):
             showlegend=False
         )
         fig.update_traces(texttemplate='%{text:.1f}', textposition='inside')
-        st.plotly_chart(fig, use_container_width=True)
+        config = {"responsive": True, "displayModeBar": True}
+        st.plotly_chart(fig, use_container_width=True,config=config)
 
 def content_based_filtering(df):
     """Content-based filtering recommendations"""
@@ -710,7 +711,8 @@ def content_based_filtering(df):
                             showlegend=False
                         )
                         fig.update_traces(texttemplate='%{text:.3f}', textposition='inside')
-                        st.plotly_chart(fig, use_container_width=True)
+                        config = {"responsive": True, "displayModeBar": True}
+                        st.plotly_chart(fig, use_container_width=True,config=config)
 
                 else:
                     st.error("❌ No recommendations found. Try selecting a different movie.")
@@ -780,7 +782,8 @@ def movie_analysis_dashboard(df):
                 xaxis_title="Release Year",
                 yaxis_title="Number of Movies"
             )
-            st.plotly_chart(fig_yearly, use_container_width=True)
+            config = {"responsive": True, "displayModeBar": True}
+            st.plotly_chart(fig_yearly, use_container_width=True,config=config)
 
             # Additional yearly statistics
             col1, col2, col3 = st.columns(3)
@@ -814,7 +817,8 @@ def movie_analysis_dashboard(df):
                 color_continuous_scale='viridis'
             )
             fig_decade.update_layout(height=400)
-            st.plotly_chart(fig_decade, use_container_width=True)
+            config = {"responsive": True, "displayModeBar": True}
+            st.plotly_chart(fig_decade, use_container_width=True,config=config)
 
     with tab2:
         st.subheader("🌍 Geographic Analysis")
@@ -855,7 +859,8 @@ def movie_analysis_dashboard(df):
                     yaxis={'categoryorder': 'total ascending'},
                     height=600
                 )
-                st.plotly_chart(fig_countries, use_container_width=True)
+                config = {"responsive": True, "displayModeBar": True}
+                st.plotly_chart(fig_countries, use_container_width=True,config=config)
 
                 # Country statistics
                 col1, col2, col3 = st.columns(3)
@@ -884,7 +889,8 @@ def movie_analysis_dashboard(df):
                 title='Movie Production by Top 10 Countries'
             )
             fig_geo_pie.update_layout(height=500)
-            st.plotly_chart(fig_geo_pie, use_container_width=True)
+            config = {"responsive": True, "displayModeBar": True}
+            st.plotly_chart(fig_geo_pie, use_container_width=True,config=config)
 
     with tab3:
         st.subheader("📄 Text Analysis")
@@ -914,7 +920,8 @@ def movie_analysis_dashboard(df):
                     yaxis={'categoryorder': 'total ascending'},
                     height=600
                 )
-                st.plotly_chart(fig_words, use_container_width=True)
+                config = {"responsive": True, "displayModeBar": True}
+                st.plotly_chart(fig_words, use_container_width=True,config=config)
 
                 # Word cloud using matplotlib (if wordcloud is available)
                 if WORDCLOUD_AVAILABLE:
@@ -968,7 +975,8 @@ def movie_analysis_dashboard(df):
                 title='Distribution of Overview Lengths',
                 labels={'overview_length': 'Overview Length (characters)', 'count': 'Number of Movies'}
             )
-            st.plotly_chart(fig_length, use_container_width=True)
+            config = {"responsive": True, "displayModeBar": True}
+            st.plotly_chart(fig_length, use_container_width=True,config=config)
 
     with tab4:
         st.subheader("📊 Statistical Distributions")
@@ -985,7 +993,8 @@ def movie_analysis_dashboard(df):
             )
             fig_rating.add_vline(x=df['vote_average'].mean(), line_dash="dash", 
                                 annotation_text=f"Mean: {df['vote_average'].mean():.2f}")
-            st.plotly_chart(fig_rating, use_container_width=True)
+            config = {"responsive": True, "displayModeBar": True}
+            st.plotly_chart(fig_rating, use_container_width=True,config=config)
 
         # Runtime distribution
         if 'runtime' in df.columns:
@@ -998,7 +1007,8 @@ def movie_analysis_dashboard(df):
             )
             fig_runtime.add_vline(x=df['runtime'].mean(), line_dash="dash",
                                  annotation_text=f"Mean: {df['runtime'].mean():.0f} min")
-            st.plotly_chart(fig_runtime, use_container_width=True)
+            config = {"responsive": True, "displayModeBar": True}
+            st.plotly_chart(fig_runtime, use_container_width=True,config=config)
 
     with tab5:
         st.subheader("🔗 Feature Correlations")
@@ -1018,7 +1028,8 @@ def movie_analysis_dashboard(df):
                 color_continuous_scale='RdBu',
                 color_continuous_midpoint=0
             )
-            st.plotly_chart(fig_heatmap, use_container_width=True)
+            config = {"responsive": True, "displayModeBar": True}
+            st.plotly_chart(fig_heatmap, use_container_width=True,config=config)
 
             # Summary statistics
             st.subheader("📊 Summary Statistics")
