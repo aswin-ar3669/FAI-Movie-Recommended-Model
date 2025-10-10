@@ -38,8 +38,8 @@ filtering systems** as they improve the quality of search results and provides i
 search item or are related to the search history of the user.
 
 **Types of Recommender Systems:**
-1. **Demographic Filtering** - Generalized recommendations based on popularity
-2. **Content Based Filtering** - Recommendations based on item similarity
+1. **Content Based Filtering** - Recommendations based on item similarity
+2. **Demographic Filtering** - Generalized recommendations based on popularity
 3. **Collaborative Filtering** - Recommendations based on user behavior patterns
 """)
 
@@ -310,8 +310,8 @@ def main():
     # Sidebar for navigation
     st.sidebar.title("📍 Navigation")
     page = st.sidebar.selectbox("Choose a section:", [
+        "🎯 Content-Based Filtering",
         "📊 Demographic Filtering",
-        "🎯 Content-Based Filtering", 
         "📈 Movie Analysis Dashboard"
     ])
 
@@ -337,6 +337,8 @@ def main():
         content_based_filtering(df)
     elif page == "📈 Movie Analysis Dashboard":
         movie_analysis_dashboard(df)
+    else:
+        content_based_filtering(df)
 
 
 def movie_analysis_dashboard(df):
