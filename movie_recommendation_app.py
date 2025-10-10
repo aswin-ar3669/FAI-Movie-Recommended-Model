@@ -301,8 +301,7 @@ def create_word_cloud_data(text_series, max_words=100):
     ])
 
     # Split into words and count frequencies
-    words = [word for word in cleaned_text.split() 
-             if len(word) > 2 and word not in stop_words]
+    words = [word for word in cleaned_text.split() if len(word) > 2 and word not in stop_words]
 
     word_freq = Counter(words).most_common(max_words)
 
@@ -627,8 +626,7 @@ def movie_analysis_dashboard(df):
                 title='Distribution of Movie Runtimes',
                 labels={'runtime': 'Runtime (minutes)', 'count': 'Number of Movies'}
             )
-            fig_runtime.add_vline(x=df['runtime'].mean(), line_dash="dash",
-                                 annotation_text=f"Mean: {df['runtime'].mean():.0f} min")
+            fig_runtime.add_vline(x=df['runtime'].mean(), line_dash="dash",annotation_text=f"Mean: {df['runtime'].mean():.0f} min")
             config = {"responsive": True, "displayModeBar": True}
             st.plotly_chart(fig_runtime, use_container_width=True,config=config)
 
