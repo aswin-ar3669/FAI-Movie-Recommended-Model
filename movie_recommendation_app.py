@@ -292,13 +292,11 @@ def create_word_cloud_data(text_series, max_words=100):
     cleaned_text = re.sub(r'[^a-zA-Z\s]', '', all_text.lower())
 
     # Remove common stop words
-    stop_words = set([
-        'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
-        'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did',
-        'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'his', 'her', 'their',
-        'him', 'she', 'they', 'them', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'we',
-        'from', 'up', 'out', 'down', 'off', 'over', 'under', 'again', 'further', 'then', 'once'
-    ])
+    stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are',
+                  'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
+                  'could', 'should', 'may', 'might', 'must', 'can', 'his', 'her', 'their', 'him', 'she', 'they', 'them',
+                  'this', 'that', 'these', 'those', 'i', 'you', 'he', 'we', 'from', 'up', 'out', 'down', 'off', 'over',
+                  'under', 'again', 'further', 'then', 'once'}
 
     # Split into words and count frequencies
     words = [word for word in cleaned_text.split() if len(word) > 2 and word not in stop_words]
