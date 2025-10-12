@@ -99,11 +99,11 @@ def content_based_filtering(df):
             else:
                 st.warning("⚠️ No movies found. Try a different search term.")
                 # Show top movies as fallback
-                top_movies = df_processed.nlargest(20, 'vote_average')['title'].tolist()
+                top_movies = df_processed.nlargest(30, 'vote_average')['title'].tolist()
                 selected_movie = st.selectbox("📋 Choose from top rated movies:", top_movies)
         else:
             # Show top movies for selection
-            top_movies = df_processed.nlargest(20, 'vote_average')['title'].tolist()
+            top_movies = df_processed.nlargest(30, 'vote_average')['title'].tolist()
             selected_movie = st.selectbox("📋 Choose from top rated movies:", top_movies)
 
     with col2:

@@ -83,14 +83,14 @@ def demographic_filtering(df):
     # --- Popularity Chart ---
     if 'popularity' in df.columns:
         st.subheader("📈 Most Popular Movies")
-        pop_movies = df.nlargest(15, 'popularity')
+        pop_movies = df.nlargest(num_movies, 'popularity')
 
         fig = px.bar(
             pop_movies, 
             x='popularity', 
             y='title',
             orientation='h',
-            title='Top 15 Most Popular Movies',
+            title=f'Top {num_movies} Most Popular Movies',
             labels={'popularity': 'Popularity Score', 'title': 'Movie Title'},
             color='popularity',
             color_continuous_scale='viridis',

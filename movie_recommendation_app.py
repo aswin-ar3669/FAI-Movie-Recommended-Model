@@ -28,12 +28,9 @@ st.set_page_config(
 )
 
 st.title("🎬 Movie Recommendation System")
-st.markdown("### The Age of Recommender Systems")
-
 # Add description
 st.markdown("""
-The rapid growth of data collection has led to a new era of information. Data is being used to create more efficient 
-systems and this is where Recommendation Systems come into play. Recommendation Systems are a type of **information 
+Recommendation Systems are a type of **information 
 filtering systems** as they improve the quality of search results and provides items that are more relevant to the 
 search item or are related to the search history of the user.
 
