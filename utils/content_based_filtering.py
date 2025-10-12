@@ -60,7 +60,7 @@ def content_based_filtering(df):
 
             # 1. TF-IDF for overview (plot-based)
             tfidf = TfidfVectorizer(
-                stop_words='english', 
+                stop_words='english',
                 max_features=10000,
                 max_df=0.95,      # Allow terms in up to 95% of documents
                 min_df=1,         # Allow terms that appear in at least 1 document
@@ -99,19 +99,18 @@ def content_based_filtering(df):
             else:
                 st.warning("⚠️ No movies found. Try a different search term.")
                 # Show top movies as fallback
-                top_movies = df_processed.nlargest(30, 'vote_average')['title'].tolist()
+                top_movies = df_processed.nlargest(100, 'vote_average')['title'].tolist()
                 selected_movie = st.selectbox("📋 Choose from top rated movies:", top_movies)
         else:
             # Show top movies for selection
-            top_movies = df_processed.nlargest(30, 'vote_average')['title'].tolist()
+            top_movies = df_processed.nlargest(100, 'vote_average')['title'].tolist()
             selected_movie = st.selectbox("📋 Choose from top rated movies:", top_movies)
 
     with col2:
         if has_metadata and cosine_sim_metadata is not None:
             recommendation_type = st.radio(
                 "🎯 Recommendation Type:",
-                ["📄 Plot-based", "🎭 Metadata-based"],
-                help="Plot-based uses movie overviews\nMetadata-based uses cast, director, genres"
+                ["📄 Plot-based (Based on Movies Overview)", "🎭 Metadata-based (Based on Cast, Director, Genres)"],
             )
         else:
             recommendation_type = "📄 Plot-based"
@@ -153,7 +152,7 @@ def content_based_filtering(df):
                     cosine_sim = cosine_sim_metadata
 
                 recommendations = get_recommendations(
-                    selected_movie, 
+                    selected_movie,
                     cosine_sim,
                     df_processed,
                     num_recommendations
@@ -266,7 +265,7 @@ def get_recommendations(title, cosine_sim, df, num_recommendations=10):
     except Exception as e:
         st.error(f"❌ Error in recommendation function: {str(e)}")
         return None
-    
+
 def get_director(x):
     """Extract director from crew data"""
     try:

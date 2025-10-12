@@ -652,5 +652,6 @@ def movie_analysis_dashboard(df):
             st.subheader("📊 Summary Statistics")
             st.dataframe(df[available_cols].describe().round(2), use_container_width=True)
 
+
 if __name__ == "__main__":
     main()
