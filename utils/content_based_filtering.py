@@ -1,14 +1,9 @@
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.metrics.pairwise import linear_kernel, cosine_similarity
 from ast import literal_eval
 import streamlit as st
 import plotly.express as px
-import plotly.graph_objects as go
-from io import StringIO
 import warnings
 
 
