@@ -56,7 +56,7 @@ def content_based_filtering(df):
             # 1. TF-IDF for overview (plot-based)
             tfidf = TfidfVectorizer(
                 stop_words='english',
-                max_features=10000,
+                max_features=15000,
                 max_df=0.95,      # Allow terms in up to 95% of documents
                 min_df=1,         # Allow terms that appear in at least 1 document
                 ngram_range=(1, 2) # Include both unigrams and bigrams
@@ -67,7 +67,7 @@ def content_based_filtering(df):
             # 2. Count vectorizer for metadata (if available)
             cosine_sim_metadata = None
             if has_metadata and 'soup' in df_processed.columns:
-                count = CountVectorizer(stop_words='english', max_features=5000)
+                count = CountVectorizer(stop_words='english', max_features=15000, max_df=0.95, min_df=1)
                 count_matrix = count.fit_transform(df_processed['soup'])
                 cosine_sim_metadata = cosine_similarity(count_matrix, count_matrix)
 

@@ -178,7 +178,7 @@ def recall_at_k(recommended, ground_truth, k=10):
 
 def page_model_comparison(df_movies):
     st.header("🧪 Model Comparison")
-    st.markdown("Compare Demographic, Content TF‑IDF, Content Metadata, Collaborative, and Hybrid recommenders.")
+    st.markdown("Compare Demographic, Content TF‑IDF, Content Metadata")
     df_movies = df_movies.copy()
     df_movies['vote_average'] = pd.to_numeric(df_movies.get('vote_average', np.nan), errors='coerce').fillna(0.0)
     df_movies['vote_count'] = pd.to_numeric(df_movies.get('vote_count', np.nan), errors='coerce').fillna(0).astype(int)
@@ -188,33 +188,21 @@ def page_model_comparison(df_movies):
     item_col_opt = 'id'
 
     interactions_df = None
-    users_cat = items_cat = None
-    user_item_csr = None
-    als_model = None
-    implicit_ready = False
+    items_cat = None
 
     st.subheader("⚙️ Comparison Settings")
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     with col1:
         topN = st.slider("Top-N recommendations", min_value=5, max_value=30, value=10, step=5)
     with col2:
         quantile_q = st.slider("Demographic vote-count quantile", 0.1, 0.95, 0.6, 0.05)
-    with col3:
-        alpha = st.slider("Hybrid weight (CF vs Content)", 0.0, 1.0, 0.5, 0.05)
 
     # Select context: either user-centric (for CF/hybrid) or item-centric (for content)
-    mode = st.radio("Recommendation mode", ["Item-to-Item (content)", "User-to-Item (CF/Hybrid)"])
+    mode = st.radio("Recommendation mode", ["Item-to-Item (content)"])
     selected_title = None
-    selected_user = None
 
     if mode == "Item-to-Item (content)":
         selected_title = st.selectbox("Anchor movie", df_movies['title'].dropna().unique().tolist()[:5000])
-    else:
-        if interactions_df is not None:
-            user_list = interactions_df[user_col_opt].astype('category').cat.categories.tolist()
-            selected_user = st.selectbox("User for CF/Hybrid", user_list)
-        else:
-            st.info("Upload interactions CSV to enable CF/Hybrid recommendations.")
 
     run_btn = st.button("Run Comparison")
     if not run_btn:
@@ -256,79 +244,30 @@ def page_model_comparison(df_movies):
     # Run per-model recommendations
     results = {}
 
-    # 1) Demographic
-    dem_top = dem_df[['title', 'score']].head(topN)
-    results['Demographic'] = dem_top
-
     # 2) Content TF-IDF (if item mode and tfidf is available)
     if mode == "Item-to-Item (content)" and tfidf_sim is not None and selected_title in title_to_idx:
         idx = title_to_idx[selected_title]
         sims = tfidf_sim[idx]
         rec_idx, rec_scores = topn_from_scores(sims, exclude_idx=idx, topn=topN)
-        results['Content TF-IDF'] = pd.DataFrame({
+        results['Content TF-IDF TfidfVectorizer'] = pd.DataFrame({
             'title': df_movies.iloc[rec_idx]['title'].values,
             'score': rec_scores
         })
     else:
-        results['Content TF-IDF'] = pd.DataFrame(columns=['title', 'score'])
+        results['Content TF-IDF TfidfVectorizer'] = pd.DataFrame(columns=['title', 'score'])
 
     # 3) Content Metadata
     if mode == "Item-to-Item (content)" and meta_sim is not None and selected_title in title_to_idx:
         idx = title_to_idx[selected_title]
         sims = meta_sim[idx]
         rec_idx, rec_scores = topn_from_scores(sims, exclude_idx=idx, topn=topN)
-        results['Content Metadata'] = pd.DataFrame({
+        results['Content Metadata CountVectorizer'] = pd.DataFrame({
             'title': df_movies.iloc[rec_idx]['title'].values,
             'score': rec_scores
         })
     else:
-        results['Content Metadata'] = pd.DataFrame(columns=['title', 'score'])
+        results['Content Metadata CountVectorizer'] = pd.DataFrame(columns=['title', 'score'])
 
-    # 4) Collaborative (implicit ALS) for user mode
-    cf_titles = pd.DataFrame(columns=['title', 'score'])
-    if mode == "User-to-Item (CF/Hybrid)" and implicit_ready and selected_user is not None:
-        try:
-            # Map user to index
-            user_index = list(users_cat.cat.categories).index(selected_user)
-            rec_items, rec_scores = cf_recommend_items_for_user_implicit(als_model, user_index, user_item_csr,
-                                                                         N=topN + 50)
-            # Convert CF item indices to movie IDs
-            item_ids_order = list(items_cat.cat.categories)
-            rec_movie_ids = [item_ids_order[i] for i in rec_items]
-            # Join with df_movies to get titles; keep only those present
-            if 'id' in df_movies.columns:
-                m_join = pd.DataFrame({'id': rec_movie_ids, 'score': rec_scores})
-                cf_titles = m_join.merge(df_movies[['id', 'title']], on='id', how='inner').drop_duplicates(
-                    'title').head(topN)
-                cf_titles = cf_titles[['title', 'score']]
-        except Exception as e:
-            st.warning(f"CF recommendation failed: {e}")
-    results['Collaborative ALS'] = cf_titles
-
-    # 5) Hybrid: blend CF and best content model available (prefer TF-IDF)
-    hybrid_df = pd.DataFrame(columns=['title', 'score'])
-    if mode == "User-to-Item (CF/Hybrid)" and not cf_titles.empty:
-        # Build a candidate pool from CF top-M
-        cf_candidates = cf_titles.copy()
-        # For content score, if selected_title provided (optional), fall back to average of item sims to user liked items is more complex.
-        # Simpler: if user has recent positive interactions, compute centroid content and score all; here we use TF-IDF sim from a seed if provided via a fallback.
-        # As a practical approximation without user seed item, we will just min-max scale CF scores and combine with demographic or global popularity as content proxy.
-        # If you want item-to-item hybrid anchored on a movie, switch mode to Item-to-Item.
-        content_proxy = None
-        if 'popularity' in df_movies.columns:
-            content_proxy = df_movies.set_index('title')['popularity']
-        else:
-            content_proxy = df_movies.set_index('title')['vote_average']
-        # Scale both
-        tmp = cf_candidates.set_index('title').copy()
-        tmp['cf'] = tmp['score'].astype(float)
-        tmp['content'] = content_proxy.reindex(tmp.index).fillna(content_proxy.mean())
-        scaler = MinMaxScaler()
-        tmp[['cf_norm', 'content_norm']] = scaler.fit_transform(tmp[['cf', 'content']])
-        tmp['hybrid'] = alpha * tmp['cf_norm'] + (1 - alpha) * tmp['content_norm']
-        hybrid_df = tmp.sort_values('hybrid', ascending=False).reset_index()[['title', 'hybrid']]
-        hybrid_df.columns = ['title', 'score']
-    results['Hybrid (CF+Content)'] = hybrid_df
 
     # Display results
     st.subheader("📋 Top-N Results by Model")
@@ -339,25 +278,6 @@ def page_model_comparison(df_movies):
                 st.dataframe(dfres.head(topN), use_container_width=True)
             else:
                 st.info("No results available for this model and context.")
-
-    # Optional simple evaluation if interactions available (precision/recall at K for a user)
-    if mode == "User-to-Item (CF/Hybrid)" and interactions_df is not None and selected_user is not None:
-        st.subheader("📏 Simple Evaluation (Precision/Recall@K)")
-        # Build ground-truth set: items the user interacted with that are not in training holdout (for a quick demo, use all interactions)
-        user_hist = interactions_df[interactions_df[user_col_opt] == selected_user][item_col_opt].tolist()
-        gt = set(user_hist)
-        metric_rows = []
-        for name, dfres in results.items():
-            if dfres is None or dfres.empty or 'title' not in dfres.columns:
-                continue
-            # Map titles to ids to compare with gt (if df_movies has 'id')
-            if 'id' in df_movies.columns:
-                rec_ids = dfres.merge(df_movies[['title', 'id']], on='title', how='left')['id'].dropna().tolist()
-                p = precision_at_k(rec_ids, gt, k=topN)
-                r = recall_at_k(rec_ids, gt, k=topN)
-                metric_rows.append({'Model': name, 'Precision@N': round(p, 3), 'Recall@N': round(r, 3)})
-        if metric_rows:
-            st.table(pd.DataFrame(metric_rows))
 
 
 # ---------------------------
