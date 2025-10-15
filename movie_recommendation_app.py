@@ -275,10 +275,10 @@ def main():
     st.sidebar.title("📍 Navigation")
     page = st.sidebar.selectbox("Choose a section:", [
         "Content-Based Filtering",
-        "Demographic Filtering",
-        "Movie Analysis Dashboard",
         "Model Comparison",
-        "Classification Report"
+        "Classification Report",
+        "Demographic Filtering",
+        "Movie Analysis Dashboard"
     ])
 
     # Load data
