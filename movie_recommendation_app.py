@@ -56,7 +56,7 @@ def load_data(movies_file=None, credits_file=None):
     try:
         if movies_file is not None:
             # Load movies data
-            df_movies = pd.read_csv(movies_file)
+            df_movies = pd.read_csv(movies_file, encoding="utf-8")
 
             # Display column information in sidebar
             with st.sidebar.expander("📋 Movies CSV Info"):
@@ -78,7 +78,7 @@ def load_data(movies_file=None, credits_file=None):
 
             # If credits file is provided, merge them
             if credits_file is not None:
-                df_credits = pd.read_csv(credits_file)
+                df_credits = pd.read_csv(credits_file, encoding="utf-8")
 
                 with st.sidebar.expander("📋 Credits CSV Info"):
                     st.write("**Columns found:**")

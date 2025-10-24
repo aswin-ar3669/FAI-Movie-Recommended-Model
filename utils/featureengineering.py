@@ -17,8 +17,8 @@ def load_tmdb_5000(movies_path: str, credits_path: str):
     - genres (str JSON), keywords (str JSON), cast (str JSON), crew (str JSON), production_countries (str JSON)
     """
     # Read CSVs
-    movies = pd.read_csv(movies_path)
-    credits = pd.read_csv(credits_path)
+    movies = pd.read_csv(movies_path, encoding="utf-8")
+    credits = pd.read_csv(credits_path, encoding="utf-8")
 
     # Standardize credits column names (Kaggle: movie_id, title, cast, crew)
     if 'movie_id' in credits.columns:
