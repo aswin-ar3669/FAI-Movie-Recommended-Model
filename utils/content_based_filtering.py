@@ -1,6 +1,6 @@
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-from sklearn.metrics.pairwise import linear_kernel, cosine_similarity
+from sklearn.metrics.pairwise import cosine_similarity
 from ast import literal_eval
 import streamlit as st
 import plotly.express as px
@@ -62,7 +62,7 @@ def content_based_filtering(df):
                 ngram_range=(1, 2) # Include both unigrams and bigrams
             )
             tfidf_matrix = tfidf.fit_transform(df_processed['overview'])
-            cosine_sim_plot = linear_kernel(tfidf_matrix, tfidf_matrix)
+            cosine_sim_plot = cosine_similarity(tfidf_matrix, tfidf_matrix)
 
             # 2. Count vectorizer for metadata (if available)
             cosine_sim_metadata = None

@@ -10,7 +10,7 @@ import plotly.express as px
 from ast import literal_eval
 from scipy.sparse import coo_matrix, csr_matrix
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-from sklearn.metrics.pairwise import linear_kernel, cosine_similarity
+from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
@@ -100,7 +100,7 @@ def tfidf_similarity_from_overview(df):
     texts = df['overview'].fillna('No overview available').astype(str)
     tfidf = TfidfVectorizer(stop_words='english', max_features=15000, max_df=0.95, min_df=1, ngram_range=(1, 2))
     mat = tfidf.fit_transform(texts)
-    return linear_kernel(mat, mat)
+    return cosine_similarity(mat, mat)
 
 
 def count_similarity_from_soup(df_soup):
