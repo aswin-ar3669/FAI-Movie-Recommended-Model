@@ -117,6 +117,195 @@ def movie_analysis_dashboard(df):
             config = {"responsive": True, "displayModeBar": True}
             st.plotly_chart(fig_decade, use_container_width=True, config=config)
 
+        # Helper to parse list-like columns with dicts having 'name'
+        def _parse_list_col(x):
+            try:
+                if pd.isna(x) or x == '':
+                    return []
+                if isinstance(x, str):
+                    x = literal_eval(x)
+                if isinstance(x, list):
+                    return [i.get('name', '') for i in x if isinstance(i, dict) and i.get('name')]
+            except:
+                return []
+            return []
+
+        # Movies count by genre
+        if 'genres' in df.columns:
+            st.markdown("#### Numbers of Movies by Genre")
+            gdf = df.copy()
+            gdf['genres_list'] = gdf['genres'].apply(_parse_list_col)
+            exploded = gdf.explode('genres_list')
+            genre_counts = exploded['genres_list'].dropna().value_counts().reset_index()
+            genre_counts.columns = ['Genre', 'Count']
+            if len(genre_counts) > 0:
+                fig_genre_counts = px.bar(
+                    genre_counts.head(20).sort_values('Count'),
+                    x='Count', y='Genre', orientation='h',
+                    title='Movie Count by Genre (Top 20)',
+                    labels={'Count': 'Number of Movies', 'Genre': 'Genre'},
+                    color='Count', color_continuous_scale='teal'
+                )
+                fig_genre_counts.update_layout(height=600, yaxis={'categoryorder': 'total ascending'})
+                st.plotly_chart(fig_genre_counts, use_container_width=True,
+                                config={"responsive": True, "displayModeBar": True})
+
+        # Highest rated movies by genre
+        st.markdown("#### Highest Rated Movies by Genre")
+
+        if {'genres', 'title', 'vote_average', 'vote_count'}.issubset(df.columns):
+            # Parse genres
+            def _parse_list_col(x):
+                try:
+                    if pd.isna(x) or x == '':
+                        return []
+                    if isinstance(x, str):
+                        x = literal_eval(x)
+                    if isinstance(x, list):
+                        return [i.get('name', '') for i in x if isinstance(i, dict) and i.get('name')]
+                except:
+                    return []
+                return []
+
+            min_votes_genre = st.slider("Minimum votes per movie (genre ranking)", 0, int(df['vote_count'].max()), 100,
+                                        step=50, key="min_votes_genre_sep")
+            gdf = df.copy()
+            gdf['genres_list'] = gdf['genres'].apply(_parse_list_col)
+            ex = gdf.explode('genres_list').dropna(subset=['genres_list'])
+
+            # Apply minimum votes and pick top per genre
+            ex = ex[ex['vote_count'] >= min_votes_genre]
+            ex = ex.sort_values(['genres_list', 'vote_average', 'vote_count'], ascending=[True, False, False])
+            top1 = ex.groupby('genres_list').head(1)[['genres_list', 'title', 'vote_average', 'vote_count']]
+
+            if len(top1) > 0:
+                st.markdown("Top movie per genre (min votes applied)")
+                fig_top1 = px.bar(
+                    top1.sort_values('vote_average'),
+                    x='vote_average', y='genres_list', orientation='h',
+                    title=f'Highest Rated Movie by Genre (min {min_votes_genre} votes)',
+                    labels={'vote_average': 'Average Rating', 'genres_list': 'Genre'},
+                    color='vote_average', color_continuous_scale='viridis',
+                    text='title'
+                )
+                fig_top1.update_traces(textposition='outside')
+                fig_top1.update_layout(height=650, yaxis={'categoryorder': 'total ascending'})
+                st.plotly_chart(fig_top1, use_container_width=True, config={"responsive": True, "displayModeBar": True})
+            else:
+                st.info("💡 No qualifying movies for genre ranking.")
+        else:
+            st.info("💡 Required columns not found for genre ranking.")
+
+        # Optional: show top-K per genre separately
+        if {'genres', 'title', 'vote_average', 'vote_count'}.issubset(df.columns):
+            st.markdown("#### Top-K Highest Rated Movies per Genre (separate)")
+            top_k = st.slider("Top K per genre", 1, 10, 5, key="topk_genre_sep")
+
+            def _parse_list_col(x):
+                try:
+                    if pd.isna(x) or x == '':
+                        return []
+                    if isinstance(x, str):
+                        x = literal_eval(x)
+                    if isinstance(x, list):
+                        return [i.get('name', '') for i in x if isinstance(i, dict) and i.get('name')]
+                except:
+                    return []
+                return []
+
+            gdfK = df.copy()
+            gdfK['genres_list'] = gdfK['genres'].apply(_parse_list_col)
+            exK = gdfK.explode('genres_list').dropna(subset=['genres_list'])
+
+            # Reuse minimum votes from above if created, else define a default
+            min_votes_val = st.session_state.get("min_votes_genre_sep", 100)
+            exK = exK[exK['vote_count'] >= min_votes_val]
+
+            # Get available genres after filtering
+            genres_available = exK['genres_list'].dropna().unique().tolist()
+            selected_genres = st.multiselect(
+                "Select genres to display",
+                options=sorted(genres_available),
+                default=sorted(genres_available)[:6]
+            )
+
+            # Create tabs per selected genre to keep charts separate
+            if selected_genres:
+                genre_tabs = st.tabs(selected_genres)
+                for tg, tab in zip(selected_genres, genre_tabs):
+                    with tab:
+                        sub = exK[exK['genres_list'] == tg].sort_values(['vote_average', 'vote_count'],
+                                                                        ascending=[False, False]).head(top_k)
+                        if len(sub) == 0:
+                            st.info(f"No movies for {tg} with min votes {min_votes_val}.")
+                        else:
+                            fig_sub = px.bar(
+                                sub.sort_values('vote_average'),
+                                x='vote_average', y='title', orientation='h',
+                                title=f"{tg}: Top {len(sub)} by Rating (min {min_votes_val} votes)",
+                                labels={'vote_average': 'Average Rating', 'title': 'Movie'},
+                                color='vote_average', color_continuous_scale='plasma'
+                            )
+                            fig_sub.update_layout(height=max(350, 40 * len(sub)),
+                                                  yaxis={'categoryorder': 'total ascending'})
+                            st.plotly_chart(fig_sub, use_container_width=True,
+                                            config={"responsive": True, "displayModeBar": True})
+
+
+        # Actors with most appearances
+        if 'cast' in df.columns:
+            st.markdown("#### Actors with Most Appearances")
+            cdf = df.copy()
+            cdf['cast_list'] = cdf['cast'].apply(_parse_list_col)
+            cast_ex = cdf.explode('cast_list')
+            top_n_cast = st.slider("Top N actors", 5, 50, 20, key="top_cast")
+            cast_counts = cast_ex['cast_list'].dropna().value_counts().head(top_n_cast).reset_index()
+            cast_counts.columns = ['Actor', 'Appearances']
+            if len(cast_counts) > 0:
+                fig_cast = px.bar(
+                    cast_counts.sort_values('Appearances'),
+                    x='Appearances', y='Actor', orientation='h',
+                    title=f'Top {len(cast_counts)} Actors by Appearances',
+                    labels={'Appearances': 'Movie Appearances', 'Actor': 'Actor'},
+                    color='Appearances', color_continuous_scale='plasma'
+                )
+                fig_cast.update_layout(height=650, yaxis={'categoryorder': 'total ascending'})
+                st.plotly_chart(fig_cast, use_container_width=True, config={"responsive": True, "displayModeBar": True})
+
+        # Directors with most movies
+        def _get_director_from_crew(x):
+            try:
+                if pd.isna(x) or x == '':
+                    return None
+                crew = literal_eval(x) if isinstance(x, str) else x
+                if isinstance(crew, list):
+                    for d in crew:
+                        if isinstance(d, dict) and d.get('job') == 'Director' and d.get('name'):
+                            return d['name']
+            except:
+                return None
+            return None
+
+        if 'crew' in df.columns:
+            st.markdown("#### Directors with Most Movies")
+            ddf = df.copy()
+            ddf['director'] = ddf['crew'].apply(_get_director_from_crew)
+            dir_counts = ddf['director'].dropna().value_counts()
+            top_n_dir = st.slider("Top N directors", 5, 50, 20, key="top_directors")
+            dir_df = dir_counts.head(top_n_dir).reset_index()
+            dir_df.columns = ['Director', 'Movies']
+            if len(dir_df) > 0:
+                fig_dir = px.bar(
+                    dir_df.sort_values('Movies'),
+                    x='Movies', y='Director', orientation='h',
+                    title=f'Top {len(dir_df)} Directors by Movies',
+                    labels={'Movies': 'Movies Directed', 'Director': 'Director'},
+                    color='Movies', color_continuous_scale='sunset'
+                )
+                fig_dir.update_layout(height=650, yaxis={'categoryorder': 'total ascending'})
+                st.plotly_chart(fig_dir, use_container_width=True, config={"responsive": True, "displayModeBar": True})
+
+
     with tab2:
         st.subheader("🌍 Geographic Analysis")
 
@@ -189,8 +378,102 @@ def movie_analysis_dashboard(df):
             config = {"responsive": True, "displayModeBar": True}
             st.plotly_chart(fig_geo_pie, use_container_width=True, config=config)
 
+        # 3.6 Original Languages
+        st.markdown("#### Original Languages")
+
+        if 'original_language' in df.columns:
+            # Optional mapping for common ISO 639-1 codes to readable names
+            iso_map = {
+                'en': 'English', 'hi': 'Hindi', 'ta': 'Tamil', 'te': 'Telugu', 'ml': 'Malayalam',
+                'kn': 'Kannada', 'mr': 'Marathi', 'bn': 'Bengali', 'pa': 'Punjabi', 'gu': 'Gujarati',
+                'ur': 'Urdu', 'fr': 'French', 'es': 'Spanish', 'de': 'German', 'it': 'Italian',
+                'ja': 'Japanese', 'ko': 'Korean', 'zh': 'Chinese', 'ru': 'Russian', 'pt': 'Portuguese',
+                'ar': 'Arabic', 'tr': 'Turkish', 'fa': 'Persian', 'nl': 'Dutch', 'sv': 'Swedish'
+            }
+
+            lang_series = df['original_language'].fillna('unknown').astype(str).str.lower().str.strip()
+            # Count languages
+            lang_counts = lang_series.value_counts(dropna=False).reset_index()
+            lang_counts.columns = ['code', 'count']
+            # Map to display name
+            lang_counts['language'] = lang_counts['code'].map(iso_map).fillna(lang_counts['code'].str.upper())
+
+            # Controls
+            col_a, col_b = st.columns(2)
+            with col_a:
+                top_n_lang = st.slider("Top N languages", 5, 40, 15, key="top_n_languages")
+            with col_b:
+                group_others = st.checkbox("Group remaining as 'Others'", value=True, key="group_lang_others")
+
+            if group_others and len(lang_counts) > top_n_lang:
+                head = lang_counts.head(top_n_lang).copy()
+                others_count = lang_counts['count'].iloc[top_n_lang:].sum()
+                if others_count > 0:
+                    head = pd.concat(
+                        [head, pd.DataFrame([{'code': 'others', 'count': others_count, 'language': 'Others'}])],
+                        ignore_index=True)
+                plot_df = head
+            else:
+                plot_df = lang_counts.head(top_n_lang)
+
+            # Horizontal bar chart
+            fig_lang = px.bar(
+                plot_df.sort_values('count'),
+                x='count', y='language', orientation='h',
+                title='Original Languages (Top)',
+                labels={'count': 'Number of Movies', 'language': 'Language'},
+                color='count', color_continuous_scale='Aggrnyl'
+            )
+            fig_lang.update_layout(height=500, yaxis={'categoryorder': 'total ascending'})
+            st.plotly_chart(fig_lang, use_container_width=True, config={"responsive": True, "displayModeBar": True})
+
+            # Share as pie (optional)
+            with st.expander("Show language share (pie)"):
+                fig_lang_pie = px.pie(
+                    plot_df, values='count', names='language',
+                    title='Share of Original Languages'
+                )
+                fig_lang_pie.update_layout(height=500)
+                st.plotly_chart(fig_lang_pie, use_container_width=True,
+                                config={"responsive": True, "displayModeBar": True})
+
+            # Quick metrics
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("🗣️ Unique Languages", f"{lang_counts.shape[0]}")
+            with col2:
+                top_lang = lang_counts.iloc[0]
+                st.metric("🥇 Most Common",
+                          f"{iso_map.get(top_lang['code'], top_lang['code'].upper())} ({int(top_lang['count'])})")
+            with col3:
+                pct_top5 = lang_counts['count'].head(5).sum() / lang_counts['count'].sum() * 100
+                st.metric("Top 5 Coverage", f"{pct_top5:.1f}%")
+        else:
+            st.info("💡 original_language column not found in dataset")
+
     with tab3:
         st.subheader("📄 Text Analysis")
+
+        # Most-used keywords
+        if 'keywords' in df.columns:
+            st.markdown("#### Most-used Keywords")
+            kdf = df.copy()
+            kdf['kw_list'] = kdf['keywords'].apply(_parse_list_col)
+            kw_ex = kdf.explode('kw_list')
+            top_n_kw = st.slider("Top N keywords", 10, 100, 30, step=5, key="top_keywords")
+            kw_counts = kw_ex['kw_list'].dropna().value_counts().head(top_n_kw).reset_index()
+            kw_counts.columns = ['Keyword', 'Count']
+            if len(kw_counts) > 0:
+                fig_kw = px.bar(
+                    kw_counts.sort_values('Count'),
+                    x='Count', y='Keyword', orientation='h',
+                    title=f'Top {len(kw_counts)} Most-used Keywords',
+                    labels={'Count': 'Occurrences', 'Keyword': 'Keyword'},
+                    color='Count', color_continuous_scale='dense'
+                )
+                fig_kw.update_layout(height=700, yaxis={'categoryorder': 'total ascending'})
+                st.plotly_chart(fig_kw, use_container_width=True, config={"responsive": True, "displayModeBar": True})
+
 
         # 3. Most Common Words (Word Clouds)
         if 'overview' in df.columns:
@@ -277,6 +560,80 @@ def movie_analysis_dashboard(df):
 
     with tab4:
         st.subheader("📊 Statistical Distributions")
+
+        # Votes histogram
+        if 'vote_count' in df.columns:
+            st.markdown("#### Histogram of Votes")
+            fig_votes = px.histogram(
+                df, x='vote_count', nbins=40,
+                title='Distribution of Vote Counts',
+                labels={'vote_count': 'Number of Votes', 'count': 'Number of Movies'},
+                marginal="box"
+            )
+            fig_votes.add_vline(x=df['vote_count'].mean(), line_dash="dash",
+                                annotation_text=f"Mean: {df['vote_count'].mean():.0f}")
+            st.plotly_chart(fig_votes, use_container_width=True, config={"responsive": True, "displayModeBar": True})
+        else:
+            st.info("💡 vote_count column not found")
+
+        # Top movies by number of votes
+        if {'title', 'vote_count'}.issubset(df.columns):
+            st.markdown("#### Movies with the Highest Number of Votes")
+            top_n = st.slider("Top N (votes)", 5, 50, 15, key="top_votes_slider")
+            top_votes_df = df[['title', 'vote_count']].dropna().sort_values('vote_count', ascending=False).head(top_n)
+            fig_top_votes = px.bar(
+                top_votes_df.sort_values('vote_count'),
+                x='vote_count', y='title', orientation='h',
+                title=f'Top {len(top_votes_df)} Movies by Vote Count',
+                labels={'vote_count': 'Votes', 'title': 'Movie'},
+                color='vote_count', color_continuous_scale='blues'
+            )
+            fig_top_votes.update_layout(
+                yaxis={'categoryorder': 'array', 'categoryarray': top_votes_df.sort_values('vote_count')['title']})
+            st.plotly_chart(fig_top_votes, use_container_width=True,
+                            config={"responsive": True, "displayModeBar": True})
+
+        # Histogram of vote_average
+        if 'vote_average' in df.columns:
+            st.markdown("#### Histogram of Vote Average")
+            fig_va = px.histogram(
+                df, x='vote_average', nbins=30,
+                title='Distribution of Vote Averages',
+                labels={'vote_average': 'Average Rating', 'count': 'Number of Movies'},
+                marginal="box"
+            )
+            fig_va.add_vline(x=df['vote_average'].mean(), line_dash="dash",
+                             annotation_text=f"Mean: {df['vote_average'].mean():.2f}")
+            st.plotly_chart(fig_va, use_container_width=True, config={"responsive": True, "displayModeBar": True})
+        else:
+            st.info("💡 vote_average column not found")
+
+        # Top movies by vote_average (with minimum votes filter)
+        if {'title', 'vote_average', 'vote_count'}.issubset(df.columns):
+            st.markdown("#### Movies with the Highest Vote Average")
+            min_votes = st.slider("Minimum votes to consider", 0,
+                                  int(df['vote_count'].max()) if 'vote_count' in df.columns else 10000, 100, step=50,
+                                  key="min_votes_avg")
+            top_n_avg = st.slider("Top N (rating)", 5, 50, 15, key="top_avg_slider")
+            rated_df = df[df['vote_count'] >= min_votes][['title', 'vote_average', 'vote_count']].dropna()
+            if len(rated_df) > 0:
+                top_avg_df = rated_df.sort_values(['vote_average', 'vote_count'], ascending=[False, False]).head(
+                    top_n_avg)
+                fig_top_avg = px.bar(
+                    top_avg_df.sort_values('vote_average'),
+                    x='vote_average', y='title', orientation='h',
+                    title=f'Top {len(top_avg_df)} Movies by Vote Average (min {min_votes} votes)',
+                    labels={'vote_average': 'Average Rating', 'title': 'Movie'},
+                    color='vote_average', color_continuous_scale='viridis'
+                )
+                fig_top_avg.update_layout(height=600, yaxis={'categoryorder': 'array',
+                                                             'categoryarray': top_avg_df.sort_values('vote_average')[
+                                                                 'title']})
+                st.plotly_chart(fig_top_avg, use_container_width=True,
+                                config={"responsive": True, "displayModeBar": True})
+            else:
+                st.info("💡 No movies meet the minimum vote threshold.")
+
 
         # Rating distribution
         if 'vote_average' in df.columns:
