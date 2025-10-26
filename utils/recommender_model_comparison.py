@@ -198,11 +198,9 @@ def page_model_comparison(df_movies):
         quantile_q = st.slider("Demographic vote-count quantile", 0.1, 0.95, 0.6, 0.05)
 
     # Select context: either user-centric (for CF/hybrid) or item-centric (for content)
-    mode = st.radio("Recommendation mode", ["Item-to-Item (content)"])
-    selected_title = None
+    mode = st.radio("Recommendation mode", ["TfidfVectorizer" , "CountVectorizer"])
 
-    if mode == "Item-to-Item (content)":
-        selected_title = st.selectbox("Anchor movie", df_movies['title'].dropna().unique().tolist()[:5000])
+    selected_title = st.selectbox("Anchor movie", df_movies['title'].dropna().unique().tolist()[:5000])
 
     run_btn = st.button("Run Comparison")
     if not run_btn:
@@ -241,141 +239,34 @@ def page_model_comparison(df_movies):
             item_ids_order = list(items_cat.cat.categories)
             id_to_idx = {mid: i for i, mid in enumerate(item_ids_order)}
 
-    # Run per-model recommendations
-    results = {}
-
     # 2) Content TF-IDF (if item mode and tfidf is available)
-    if mode == "Item-to-Item (content)" and tfidf_sim is not None and selected_title in title_to_idx:
+    if mode == "TfidfVectorizer" and tfidf_sim is not None and selected_title in title_to_idx:
         idx = title_to_idx[selected_title]
         sims = tfidf_sim[idx]
         rec_idx, rec_scores = topn_from_scores(sims, exclude_idx=idx, topn=topN)
-        results['Content TF-IDF TfidfVectorizer'] = pd.DataFrame({
+        dfres = pd.DataFrame({
             'title': df_movies.iloc[rec_idx]['title'].values,
             'score': rec_scores
         })
+        if not dfres.empty:
+            st.dataframe(dfres.head(topN), use_container_width=True)
     else:
-        results['Content TF-IDF TfidfVectorizer'] = pd.DataFrame(columns=['title', 'score'])
+        dfres = pd.DataFrame(columns=['title', 'score'])
+        if not dfres.empty:
+            st.dataframe(dfres.head(topN), use_container_width=True)
 
     # 3) Content Metadata
-    if mode == "Item-to-Item (content)" and meta_sim is not None and selected_title in title_to_idx:
+    if mode == "CountVectorizer" and meta_sim is not None and selected_title in title_to_idx:
         idx = title_to_idx[selected_title]
         sims = meta_sim[idx]
         rec_idx, rec_scores = topn_from_scores(sims, exclude_idx=idx, topn=topN)
-        results['Content Metadata CountVectorizer'] = pd.DataFrame({
+        dfres = pd.DataFrame({
             'title': df_movies.iloc[rec_idx]['title'].values,
             'score': rec_scores
         })
+        if not dfres.empty:
+            st.dataframe(dfres.head(topN), use_container_width=True)
     else:
-        results['Content Metadata CountVectorizer'] = pd.DataFrame(columns=['title', 'score'])
-
-
-    # Display results
-    st.subheader("📋 Top-N Results by Model")
-    tabs = st.tabs(list(results.keys()))
-    for i, (model_name, dfres) in enumerate(results.items()):
-        with tabs[i]:
-            if dfres is not None and not dfres.empty:
-                st.dataframe(dfres.head(topN), use_container_width=True)
-            else:
-                st.info("No results available for this model and context.")
-
-
-# ---------------------------
-# Classification Lab Page
-# ---------------------------
-
-def page_classification_lab(df_movies):
-    st.header("🧪 Classification Lab")
-    st.markdown("Train quick text/tabular classifiers (e.g., predict hit vs flop, rating band, or genre multi-label).")
-
-    # Target selection helpers
-    # 1) If user provides labeled CSV
-    label_col = st.text_input("Target column name (binary/multi-class)", value="hit_column")
-    text_source = st.selectbox("Text feature", options=['overview', 'soup', 'title'], index=0)
-
-    df = df_movies.copy()
-    # Optionally build soup
-    if text_source == 'soup':
-        df = build_content_soup(df)
-
-    # Simple demo target
-    df['vote_average'] = pd.to_numeric(df.get('vote_average', np.nan), errors='coerce').fillna(0.0)
-    labeled_df = df.dropna(subset=[text_source]).copy()
-    labeled_df[label_col] = (labeled_df['vote_average'] >= 6.5).astype(int)
-
-    st.write(f"Training rows available: {len(labeled_df)}")
-
-    # Model selection
-    model_choice = st.selectbox(
-        "Classifier",
-        [
-            "Logistic Regression (TF‑IDF)",
-            "Linear SVM (TF‑IDF)",
-            "Multinomial Naive Bayes (TF‑IDF)",
-            "Random Forest (TF‑IDF)"
-        ],
-        index=1
-    )
-
-    if st.button("Train & Evaluate"):
-        X = labeled_df[text_source].fillna('').astype(str)
-        y = labeled_df[label_col]
-
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42,
-                                                            stratify=y if y.nunique() > 1 else None)
-
-        # Build pipeline
-        tfidf = TfidfVectorizer(stop_words='english', max_features=20000, ngram_range=(1, 2), min_df=1, max_df=0.95)
-        if model_choice.startswith("Logistic"):
-            clf = LogisticRegression(max_iter=200, n_jobs=None)
-        elif model_choice.startswith("Linear SVM"):
-            clf = LinearSVC()
-        elif model_choice.startswith("Multinomial"):
-            clf = MultinomialNB()
-        else:
-            clf = RandomForestClassifier(n_estimators=300, random_state=42, n_jobs=-1)
-
-        pipe = Pipeline([
-            ("tfidf", tfidf),
-            ("clf", clf)
-        ])
-
-        pipe.fit(X_train, y_train)
-        y_pred = pipe.predict(X_test)
-
-        acc = accuracy_score(y_test, y_pred)
-        f1 = f1_score(y_test, y_pred, average="weighted" if y.nunique() > 2 else "binary")
-        prec = precision_score(y_test, y_pred, average="weighted" if y.nunique() > 2 else "binary", zero_division=0)
-        rec = recall_score(y_test, y_pred, average="weighted" if y.nunique() > 2 else "binary", zero_division=0)
-
-        st.subheader("📊 Evaluation")
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Accuracy", f"{acc:.3f}")
-        with col2:
-            st.metric("F1 Score", f"{f1:.3f}")
-        with col3:
-            st.metric("Precision", f"{prec:.3f}")
-        with col4:
-            st.metric("Recall", f"{rec:.3f}")
-
-        scores = cross_val_score(pipe, X_train, y_train, cv=5, scoring="r2")
-        mse_scores = -scores
-        col11, col12, = st.columns(2)
-        with col11:
-            st.metric("Mean",f"{mse_scores.mean():.3f}")
-        with col12:
-            st.metric("Standard Deviation",f"{mse_scores.std():.3f}")
-
-        st.subheader("🧾 Classification Report")
-        st.text(classification_report(y_test, y_pred))
-
-        st.subheader("🧩 Confusion Matrix")
-        cm = confusion_matrix(y_test, y_pred)
-        cm_df = pd.DataFrame(cm, index=[f"True {c}" for c in np.unique(y_test)],
-                             columns=[f"Pred {c}" for c in np.unique(y_test)])
-        st.dataframe(cm_df, use_container_width=True)
-
-        # Summary statistics
-        st.info(
-            "Tip: For multi-label tasks (e.g., genres), convert genres to multi-hot and wrap a OneVsRestClassifier over the chosen base model.")
+        dfres = pd.DataFrame(columns=['title', 'score'])
+        if not dfres.empty:
+            st.dataframe(dfres.head(topN), use_container_width=True)

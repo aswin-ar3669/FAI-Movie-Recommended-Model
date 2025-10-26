@@ -6,6 +6,10 @@ import streamlit as st
 import plotly.express as px
 import warnings
 
+def _count_valid_texts(series, min_len=3):
+    texts = series.fillna('').astype(str).str.strip()
+    texts = texts[texts.str.len() >= min_len]
+    return texts
 
 def content_based_filtering(df):
     """Content-based filtering recommendations"""
@@ -28,6 +32,7 @@ def content_based_filtering(df):
 
             # Handle missing overviews
             df_processed['overview'] = df_processed['overview'].fillna('')
+            overview_texts = df_processed['overview'].fillna('').astype(str).str.strip()
 
             # Check for metadata features
             metadata_features = ['cast', 'crew', 'keywords', 'genres']
@@ -54,24 +59,22 @@ def content_based_filtering(df):
             # Calculate similarity matrices
 
             # 1. TF-IDF for overview (plot-based)
-            tfidf = TfidfVectorizer(
-                stop_words='english',
-                max_features=15000,
-                max_df=0.95,      # Allow terms in up to 95% of documents
-                min_df=1,         # Allow terms that appear in at least 1 document
-                ngram_range=(1, 2) # Include both unigrams and bigrams
-            )
-            tfidf_matrix = tfidf.fit_transform(df_processed['overview'])
+            tfidf = TfidfVectorizer(stop_words='english', ngram_range=(1, 1), min_df=1, max_df=1.0)
+            tfidf_matrix = tfidf.fit_transform(overview_texts)
             cosine_sim_plot = cosine_similarity(tfidf_matrix, tfidf_matrix)
 
             # 2. Count vectorizer for metadata (if available)
             cosine_sim_metadata = None
             if has_metadata and 'soup' in df_processed.columns:
-                count = CountVectorizer(stop_words='english', max_features=15000, max_df=0.95, min_df=1)
-                count_matrix = count.fit_transform(df_processed['soup'])
-                cosine_sim_metadata = cosine_similarity(count_matrix, count_matrix)
-
-            st.success("✅ Similarity matrices computed successfully!")
+                soup_texts = _count_valid_texts(df_processed['soup'])
+                if len(soup_texts) >= 5:
+                    count = CountVectorizer(stop_words='english', ngram_range=(1, 1), min_df=1, max_df=1.0)
+                    count_matrix = count.fit_transform(df_processed['soup'].fillna('').astype(str))
+                    cosine_sim_metadata = cosine_similarity(count_matrix, count_matrix)
+                else:
+                    st.info(
+                        "ℹ️ Not enough non-empty metadata rows to build metadata-based similarity; using plot-based only.")
+                    cosine_sim_metadata = None
 
         except Exception as e:
             st.error(f"❌ Error processing data: {str(e)}")
@@ -105,7 +108,7 @@ def content_based_filtering(df):
         if has_metadata and cosine_sim_metadata is not None:
             recommendation_type = st.radio(
                 "🎯 Recommendation Type:",
-                ["📄 Plot-based (Based on Movies Overview)", "🎭 Metadata-based (Based on Cast, Director, Genres)"],
+                ["📄 Plot-based", "🎭 Metadata-based"],
             )
         else:
             recommendation_type = "📄 Plot-based"

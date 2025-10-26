@@ -36,7 +36,7 @@ pip install -r requirements.txt
 
 2. Run the Streamlit application:
 ```bash
-streamlit run movie_recommendation_app.py
+streamlit run main.py
 ```
 
 ## Usage
